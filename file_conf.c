@@ -1,11 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#define MAXNAME 25
-#define MAXPATH 100
-#define MAXVERSION 20
-#define MAXLENGTH 20
-#define MAXBLOCK 10
+#define MAXNAME 64
+#define MAXVERSION 64
+#define MAXFILENUM 10
+#define MAXBLOCKCRC 32
+#define MAXFACTORYNAME 64
 
 int i;
 
@@ -67,7 +67,7 @@ char f_path[][500] = {
 	"/home/ubuntu/c_compile/header_test/version_file/appsboot.mbn", 
 	"/home/ubuntu/c_compile/header_test/version_file/mdm9607-perf-sysfs.ubi", 
 	"/home/ubuntu/c_compile/header_test/version_file/mdm9607-perf-boot.img" };
-
+	
 char f_name[][25] = {
 	"tz.mbn",
 	"rpm.mbn",
@@ -78,7 +78,6 @@ char f_name[][25] = {
 
 struct file_stat{
 	char name[MAXNAME];
-	char path[MAXPATH];
 	unsigned int file_crc;
 	int length;
 	int block_num;
@@ -90,10 +89,15 @@ struct file_stat{
 
 struct status
 {
+	unsigned int img_count;
+	char factory_name[MAXFACTORYNAME];
 	char version[MAXVERSION];
-	struct file_stat tag[6];
-	unsigned int block_crc[50];
+	struct file_stat tag[MAXFILENUM];
+	unsigned int block_crc[MAXBLOCKCRC];
+	unsigned int header_crc;
+	unsigned int header_crc_comp;
 };
+
 
 unsigned int dsyslib_crc32_calc(
     const unsigned char *buf,
@@ -106,6 +110,7 @@ unsigned int dsyslib_crc32_calc(
     }
     return crc ;
 }
+
 
 int file_length(char *path)
 {
@@ -125,6 +130,7 @@ int file_length(char *path)
 	fp_tg = NULL;
 	return f_len;
 }
+
 
 unsigned int caculate_file_crc(
 	unsigned char *path_crc,
@@ -158,6 +164,7 @@ unsigned int caculate_file_crc(
 	fp_crc = NULL;
 	return crc;
 }
+
 
 int main()
 {
@@ -198,18 +205,26 @@ int main()
 		printf("malloc error\n");
 		return 1;
 	}
-	scanf(" version: %s", header->version);
+	strncpy(header->factory_name, "GOSUNCNWELINK TECHNOLOGY.,LTD.", 32);
+	printf("enter vension:");
+	scanf(" %s", header->version);
+	printf("enter image number:");
+	scanf("%d", &header->img_count);
+	printf(" \n ");
+	printf(" \n ");
+	printf("build by  %s\n ", header->factory_name);
+	printf(" \n ");
+	printf("VERSION: %s\n ", header->version);
+	printf(" \n");
 	for(count=0; count<6; count++)
 	{
 		//len = strlen(f_name[count]);
 		strncpy(header->tag[count].name, f_name[count], MAXNAME);
 		//strncat(head_buffer, header.tag.name, MAXNAME);
 		//len = strlen(f_path[count]);
-		strncpy(header->tag[count].path, f_path[count], MAXPATH);
+		//strncpy(header->tag[count].path, f_path[count], MAXPATH);
 		//strncat(head_buffer, header.tag.path, MAXPATH);
 		header->tag[count].length = file_length(f_path[count]);
-
-
 		if((((file_length(f_path[count]) + (1024-1))/1024)%128 != 0))
 		{
 			header->tag[count].block_num = (((file_length(f_path[count]) + (1024-1))/1024)/128)+1;
@@ -218,9 +233,7 @@ int main()
 		{
 			header->tag[count].block_num = ((file_length(f_path[count]) + (1024-1))/1024)/128;
 		}
-
 		header->tag[count].file_crc = caculate_file_crc(f_path[count], crc_init);						//文件crc计算
-
 		startoffset_blocksize_128 = 1+endoffset_blocksize_128;
 		endoffset_blocksize_128 = startoffset_blocksize_128+header->tag[count].block_num-1;
 		header->tag[count].start_block_8 = startoffset_blocksize_128/64 + 1;
@@ -230,7 +243,7 @@ int main()
 
 		printf(" %s\n ", header->tag[count].name);
 		printf("CRC :%02X\n ", header->tag[count].file_crc);
-        printf("%s\n ", header->tag[count].path);
+        //printf("%s\n ", header->tag[count].path);
         printf("file length %d\n ", header->tag[count].length);
         printf("file 128k block %d\n ", header->tag[count].block_num);
         printf("file start_block_8M %d\n ", header->tag[count].start_block_8);

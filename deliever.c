@@ -1,10 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#define MAXNAME 25
-#define MAXPATH 100
-#define MAXVERSION 20
+#define MAXNAME 64
+#define MAXVERSION 64
+#define MAXFILENUM 10
+#define MAXBLOCKCRC 32
+#define MAXFACTORYNAME 64
 
 static const unsigned int dsyslib_crc32_table[ 256 ] =
 {
@@ -49,8 +50,7 @@ static const unsigned int dsyslib_crc32_table[ 256 ] =
 
 struct file_stat{
 	char name[MAXNAME];
-	char path[MAXPATH];
-    unsigned int file_crc;
+	unsigned int file_crc;
 	int length;
 	int block_num;
 	int start_block_8;
@@ -61,10 +61,15 @@ struct file_stat{
 
 struct status
 {
+	unsigned int img_count;
+	char factory_name[MAXFACTORYNAME];
 	char version[MAXVERSION];
-	struct file_stat tag[6];
-    unsigned int block_crc[50];
+	struct file_stat tag[MAXFILENUM];
+	unsigned int block_crc[MAXBLOCKCRC];
+	unsigned int header_crc;
+	unsigned int header_crc_comp;
 };
+
 
 unsigned int dsyslib_crc32_calc(
     const unsigned char *buf,
@@ -261,6 +266,8 @@ int main()
     FILE *fp_source = NULL;
     FILE *tp_target = NULL;
     FILE *tg = NULL;
+     
+
 
     char *buff_temp = NULL;
     char *data = NULL;
@@ -302,7 +309,6 @@ int main()
     for(n=0; n<6; n++)
     {
         printf("%s\n ", header->tag[n].name);
-        printf("%s\n ", header->tag[n].path);
         printf("file length %d\n ", header->tag[n].length);
         printf("file 128k block %d\n ", header->tag[n].block_num);
         printf("file start_block_8M %d\n ", header->tag[n].start_block_8);
