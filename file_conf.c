@@ -212,7 +212,7 @@ int main()
 	scanf("%d", &header->img_count);
 	printf(" \n ");
 	printf(" \n ");
-	printf("build by  %s\n ", header->factory_name);
+	printf("BUILD BY  %s\n ", header->factory_name);
 	printf(" \n ");
 	printf("VERSION: %s\n ", header->version);
 	printf(" \n");
@@ -252,7 +252,7 @@ int main()
         printf("file end_offset_128K %d\n ", header->tag[count].end_offset_128);   
 		printf("file struct complete :%s\n", header->tag[count].name);
 		printf("\n");
-	}	
+	}
 	fp = fopen("sum_data", "wb+");
 	if(fp ==NULL)
 	{
@@ -260,7 +260,9 @@ int main()
 		return 1;
 	}
 	p_void = header;															//强制类型转换写入header
-	fwrite(p_void, 4096, 1, fp);
+	header->header_crc = dsyslib_crc32_calc(p_void, 4096, crc_init);			//header数据crc校验
+	header->header_crc_comp = ~(header->header_crc);							//header crc数据取反
+	fwrite(p_void, 4096, 1, fp);												//写入header
 	buffer = (char *)malloc(sizeof(char)*1);									//补足header剩余124k字节
 	if(buffer == NULL)
 	{

@@ -304,8 +304,26 @@ int main()
         return 1;
     }        
     fread(buff_temp, 4096, 1, fp_source); 
-    p_void = buff_temp;
-    header = p_void;        
+    p_void = buff_temp;                                                            //空指针领内存数据
+    header = p_void;                                                               //空指针内存数据类型强制转换
+    printf(" \n ");
+    printf(" \n ");
+    printf("build by  %s\n ", header->factory_name);
+    printf(" \n ");
+    printf("VERSION: %s\n ", header->version);
+    printf(" \n");   
+    printf("header crc : %02X\n", header->header_crc);     
+    printf("header crc comp: %02X\n", header->header_crc_comp);
+    if(header->header_crc != ~(header->header_crc_comp))
+    {
+        printf("header crc check error\n");
+        printf("\n");
+    } 
+    else
+    {
+        printf("checked\n");
+        printf("\n");
+    }
     for(n=0; n<6; n++)
     {
         printf("%s\n ", header->tag[n].name);
