@@ -182,24 +182,26 @@ int main()
 	unsigned int crc_prev;
 				
 
-	long int block_size = 0;				//128K divided number 
-	long int full_bit = 0;					//file full bite 
+	long int block_size = 0;					//128K divided number 
+	long int full_bit = 0;						//file full bite 
 	long int offset = 128*1024 + 1;				//certain offset point to locate the file access point  
-	long int temp_offset = 0;				//offset temp variate
+	long int temp_offset = 0;					//offset temp variate
 
-	int f_size = 0;                         //file size (mb)
+	int f_size = 0;                         	//file size (mb)
 	int startoffset_blocksize_128 = 0;
 	int endoffset_blocksize_128 = 1;
 	
-	char *buffer = NULL ;					//file write in buffer
-	char *data = NULL;						//file split file name 
+	char *buffer = NULL ;						//file write in buffer
+	char *data = NULL;							//file split file name 
 	char *temp = NULL;						
 
 	void *p_void;
 
-	struct status pp, *header;				//init struct
-	header = &pp;							//首地址赋值指针变量
+	struct status pp = {0};
+	struct status *header;					//init struct
+	header = &pp;								//首地址赋值指针变量
 	p_void = (char *)malloc(sizeof(char)*4096);
+	memset(p_void, 0x0, 4096);
 	if(p_void == NULL)
 	{
 		printf("malloc error\n");
@@ -216,6 +218,7 @@ int main()
 	printf(" \n ");
 	printf("VERSION: %s\n ", header->version);
 	printf(" \n");
+	
 	for(count=0; count<6; count++)
 	{
 		//len = strlen(f_name[count]);
@@ -243,7 +246,6 @@ int main()
 
 		printf(" %s\n ", header->tag[count].name);
 		printf("CRC :%02X\n ", header->tag[count].file_crc);
-        //printf("%s\n ", header->tag[count].path);
         printf("file length %d\n ", header->tag[count].length);
         printf("file 128k block %d\n ", header->tag[count].block_num);
         printf("file start_block_8M %d\n ", header->tag[count].start_block_8);
@@ -274,8 +276,6 @@ int main()
 	{
 		fwrite(buffer, 1, 1, fp);
 	}
-
-
 
 	for(i=0; i<6; i++)
 	{
@@ -340,6 +340,7 @@ int main()
 		printf("%s caculate length is %ld \n", f_path[i], full_bit);
 		printf("\n");
 	}
+	printf("file sum %ld \n", ftell(fp));
 
 	fseek(fp, 0L, SEEK_END);
 	f_size = (ftell(fp))/1024/1024;
@@ -369,19 +370,36 @@ int main()
 			printf("cant find this file %s\n", f_name[i]);
 			return 1;
 		}
-		for(count=0; count<(8*1024); count++)
+		if(j<temp_block-1)
 		{
-			buffer = (char *)malloc(sizeof(char)*1024);
-			if(buffer == NULL)
+			for(count=0; count<(8*1024); count++)
 			{
-				printf("malloc error\n");
-				return 1;
+				buffer = (char *)malloc(sizeof(char)*1024);
+				if(buffer == NULL)
+				{
+					printf("malloc error\n");
+					return 1;
+				}
+				fread(buffer, 1024, 1, fp);
+				fwrite(buffer, 1, 1024, tg);
+				free(buffer);
 			}
-			fread(buffer, 1024, 1, fp);
-			fwrite(buffer, 1, 1024, tg);
-			free(buffer);
 		}
-		
+		else
+		{
+			for(count=0; count<((offset-(temp_block-1)*1024*1024*8)/1024); count++)
+			{
+				buffer = (char *)malloc(sizeof(char)*1024);
+				if(buffer == NULL)
+				{
+					printf("malloc error\n");
+					return 1;
+				}
+				fread(buffer, 1024, 1, fp);
+				fwrite(buffer, 1, 1024, tg);
+				free(buffer);
+			}
+		}
 		f_size = ftell(tg);
 		printf("file %s has already been packaged, with %d size\n", data, f_size);
 		if(j == 0)																		//包含header的block进行crc校验
@@ -403,7 +421,27 @@ int main()
 			}
 			header->block_crc[j] = crc_prev;
 		}
-		else																			//其余block进行crc校验
+		
+		else if(j == temp_block-1)																			//其余block进行crc校验
+		{
+			crc_prev = crc_init;
+			fseek(tg, 0, SEEK_SET);
+			for(count=0; count<((offset-(temp_block-1)*1024*1024*8)/1024); count++)
+			{
+				buffer = (char *)malloc(sizeof(char)*1024);	
+				if(buffer == NULL)
+				{
+					printf("block_crc buffer malloc error\n");
+					return 1;
+				}
+				fread(buffer, 1024, 1, tg);
+				crc_prev = dsyslib_crc32_calc(buffer, 1024, crc_prev);
+				free(buffer);
+				buffer = NULL;
+			}
+			header->block_crc[j] = crc_prev;
+		}
+		else
 		{
 			crc_prev = crc_init;
 			fseek(tg, 0, SEEK_SET);
@@ -428,10 +466,23 @@ int main()
 		free(data);
 		free(temp);
 	}
+
+	fclose(fp);	
 	tg = fopen("data_block0","rb+");
 	fwrite(p_void, 4096, 1, tg);										//更新header数据
+	tp = fopen("header_temp", "wb+");
+	fseek(tg, 0, SEEK_SET);
+	buffer = (char *)malloc(sizeof(char)*128*1024);
+	if(buffer == NULL)
+	{
+		printf("header_temp buffer malloc error\n ");
+		return 1;
+	}
+	fread(buffer, 1024*128, 1, tg);
+	fwrite(buffer, 1024*128, 1, tp);
+	buffer = NULL;
 	fclose(tg);
-	fclose(fp);	
+	fclose(tp);
 	return 0;
 }
 
